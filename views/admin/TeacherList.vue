@@ -4,23 +4,19 @@
         <el-col :span="24">
           <!-- 查询表单 -->
           <el-form :inline="true" :model="queryParams" class="demo-form-inline">
-            <el-form-item label="学号">
-              <el-input v-model="queryParams.student_id" placeholder="学号" clearable></el-input>
+            <el-form-item label="教师编号">
+              <el-input v-model="queryParams.teacher_id" placeholder="教师编号" clearable></el-input>
             </el-form-item>
-            <el-form-item label="学生姓名">
-              <el-input v-model="queryParams.name" placeholder="学生姓名" clearable></el-input>
+            <el-form-item label="教师姓名">
+              <el-input v-model="queryParams.name" placeholder="教师姓名" clearable></el-input>
             </el-form-item>
-            <el-form-item label="入学年份">
-              <el-date-picker
-                v-model="queryParams.enrollment_year"
-                type="year"
-                placeholder="选择入学年份"
-                value-format="yyyy"
-                clearable>
-              </el-date-picker>
+            <el-form-item label="年龄范围">
+              <el-input-number v-model="queryParams.min_age" :min="20" :max="100" placeholder="最小年龄"></el-input-number>
+              <span style="margin: 0 10px">至</span>
+              <el-input-number v-model="queryParams.max_age" :min="20" :max="100" placeholder="最大年龄"></el-input-number>
             </el-form-item>
-            <el-form-item label="专业">
-              <el-input v-model="queryParams.major" placeholder="专业" clearable></el-input>
+            <el-form-item label="户籍所在地">
+              <el-input v-model="queryParams.hometown" placeholder="户籍所在地" clearable></el-input>
             </el-form-item>
             <el-form-item>
               <el-button type="primary" @click="handleQuery" :loading="loading">查询</el-button>
@@ -30,7 +26,7 @@
   
           <!-- 操作按钮 -->
           <div style="margin-bottom: 20px">
-            <el-button type="primary" @click="handleAdd" icon="el-icon-plus">新增学生</el-button>
+            <el-button type="primary" @click="handleAdd" icon="el-icon-plus">新增教师</el-button>
             <el-button type="success" @click="exportExcel" icon="el-icon-download">导出Excel</el-button>
           </div>
   
@@ -41,23 +37,23 @@
             v-loading="loading"
             style="width: 100%">
             <el-table-column
-              prop="student_id"
-              label="学号"
+              prop="teacher_id"
+              label="教师编号"
               width="120">
             </el-table-column>
             <el-table-column
               prop="name"
-              label="学生姓名"
+              label="教师姓名"
               width="120">
             </el-table-column>
             <el-table-column
-              prop="enrollment_year"
-              label="入学年份"
-              width="120">
+              prop="age"
+              label="年龄"
+              width="80">
             </el-table-column>
             <el-table-column
-              prop="major"
-              label="专业">
+              prop="hometown"
+              label="户籍所在地">
             </el-table-column>
             <el-table-column
               prop="created_at"
@@ -92,24 +88,18 @@
   
       <!-- 新增/编辑对话框 -->
       <el-dialog :title="dialogTitle" :visible.sync="dialogVisible" width="50%">
-        <el-form ref="form" :model="form" :rules="rules" label-width="100px">
-          <el-form-item label="学号" prop="student_id">
-            <el-input v-model="form.student_id"></el-input>
+        <el-form ref="form" :model="form" :rules="rules" label-width="120px">
+          <el-form-item label="教师编号" prop="teacher_id">
+            <el-input v-model="form.teacher_id" :disabled="!!form.id"></el-input>
           </el-form-item>
-          <el-form-item label="学生姓名" prop="name">
+          <el-form-item label="教师姓名" prop="name">
             <el-input v-model="form.name"></el-input>
           </el-form-item>
-          <el-form-item label="入学年份" prop="enrollment_year">
-            <el-date-picker
-              v-model="form.enrollment_year"
-              type="year"
-              placeholder="选择入学年份"
-              value-format="yyyy"
-              style="width: 100%">
-            </el-date-picker>
+          <el-form-item label="年龄" prop="age">
+            <el-input-number v-model="form.age" :min="20" :max="100"></el-input-number>
           </el-form-item>
-          <el-form-item label="专业" prop="major">
-            <el-input v-model="form.major"></el-input>
+          <el-form-item label="户籍所在地" prop="hometown">
+            <el-input v-model="form.hometown" type="textarea" :rows="3"></el-input>
           </el-form-item>
         </el-form>
         <span slot="footer" class="dialog-footer">
@@ -122,7 +112,7 @@
   
   <script>
   import * as XLSX from 'xlsx';
-  import { formatDate } from '@/utils/date.js';
+  import { formatDate } from '@/utils/date';
   
   export default {
     data() {
@@ -131,10 +121,11 @@
         queryParams: {
           page: 1,
           pageSize: 10,
-          student_id: '',
+          teacher_id: '',
           name: '',
-          enrollment_year: '',
-          major: ''
+          min_age: null,
+          max_age: null,
+          hometown: ''
         },
         // 表格数据
         tableData: [],
@@ -147,24 +138,26 @@
         submitLoading: false,
         form: {
           id: '',
-          student_id: '',
+          teacher_id: '',
           name: '',
-          enrollment_year: '',
-          major: ''
+          age: 30,
+          hometown: ''
         },
         rules: {
-          student_id: [
-            { required: true, message: '请输入学号', trigger: 'blur' },
-            { pattern: /^\d+$/, message: '学号必须为数字', trigger: 'blur' }
+          teacher_id: [
+            { required: true, message: '请输入教师编号', trigger: 'blur' },
+            { pattern: /^[A-Za-z0-9]+$/, message: '教师编号只能包含字母和数字' }
           ],
           name: [
-            { required: true, message: '请输入学生姓名', trigger: 'blur' }
+            { required: true, message: '请输入教师姓名', trigger: 'blur' },
+            { min: 2, max: 10, message: '长度在2到10个字符', trigger: 'blur' }
           ],
-          enrollment_year: [
-            { required: true, message: '请选择入学年份', trigger: 'change' }
+          age: [
+            { required: true, message: '请输入年龄', trigger: 'blur' },
+            { type: 'number', min: 20, max: 100, message: '年龄应在20-100岁之间', trigger: 'blur' }
           ],
-          major: [
-            { required: true, message: '请输入专业', trigger: 'blur' }
+          hometown: [
+            { required: true, message: '请输入户籍所在地', trigger: 'blur' }
           ]
         }
       };
@@ -176,7 +169,7 @@
       // 获取数据列表
       getList() {
         this.loading = true;
-        this.$http.get('/api/student/list', { params: this.queryParams })
+        this.$http.get('/api/teacher/list', { params: this.queryParams })
           .then(response => {
             this.tableData = response.data.list;
             this.total = response.data.total;
@@ -197,10 +190,11 @@
         this.queryParams = {
           page: 1,
           pageSize: 10,
-          student_id: '',
+          teacher_id: '',
           name: '',
-          enrollment_year: '',
-          major: ''
+          min_age: null,
+          max_age: null,
+          hometown: ''
         };
         this.getList();
       },
@@ -219,13 +213,13 @@
       
       // 新增
       handleAdd() {
-        this.dialogTitle = '新增学生';
+        this.dialogTitle = '新增教师';
         this.form = {
           id: '',
-          student_id: '',
+          teacher_id: '',
           name: '',
-          enrollment_year: '',
-          major: ''
+          age: 30,
+          hometown: ''
         };
         this.dialogVisible = true;
         this.$nextTick(() => {
@@ -235,7 +229,7 @@
       
       // 编辑
       handleEdit(row) {
-        this.dialogTitle = '编辑学生信息';
+        this.dialogTitle = '编辑教师信息';
         this.form = JSON.parse(JSON.stringify(row));
         this.dialogVisible = true;
         this.$nextTick(() => {
@@ -248,7 +242,7 @@
         this.$refs.form.validate(valid => {
           if (valid) {
             this.submitLoading = true;
-            const url = this.form.id ? '/api/student/update' : '/api/student/create';
+            const url = this.form.id ? '/api/teacher/update' : '/api/teacher/create';
             const method = this.form.id ? 'put' : 'post';
             
             this.$http[method](url, this.form)
@@ -266,12 +260,12 @@
       
       // 删除
       handleDelete(row) {
-        this.$confirm('确认删除该学生信息吗?', '提示', {
+        this.$confirm('确认删除该教师信息吗?', '提示', {
           confirmButtonText: '确定',
           cancelButtonText: '取消',
           type: 'warning'
         }).then(() => {
-          this.$http.delete(`/api/student/delete/${row.id}`)
+          this.$http.delete(`/api/teacher/delete/${row.id}`)
             .then(() => {
               this.$message.success('删除成功');
               this.getList();
@@ -282,7 +276,7 @@
       // 导出Excel
       exportExcel() {
         this.loading = true;
-        this.$http.get('/api/student/list', { 
+        this.$http.get('/api/teacher/list', { 
           params: {
             ...this.queryParams,
             pageSize: this.total // 获取所有数据
@@ -292,12 +286,12 @@
           
           // 准备Excel数据
           const excelData = [
-            ['学号', '学生姓名', '入学年份', '专业', '创建时间'],
+            ['教师编号', '教师姓名', '年龄', '户籍所在地', '创建时间'],
             ...data.map(item => [
-              item.student_id,
+              item.teacher_id,
               item.name,
-              item.enrollment_year,
-              item.major,
+              item.age,
+              item.hometown,
               formatDate(item.created_at, 'yyyy-MM-dd hh:mm:ss')
             ])
           ];
@@ -305,19 +299,19 @@
           // 创建工作簿
           const wb = XLSX.utils.book_new();
           const ws = XLSX.utils.aoa_to_sheet(excelData);
-          XLSX.utils.book_append_sheet(wb, ws, '学生数据');
+          XLSX.utils.book_append_sheet(wb, ws, '教师数据');
           
           // 设置列宽
           ws['!cols'] = [
-            { wch: 15 }, // 学号
-            { wch: 15 }, // 学生姓名
-            { wch: 12 }, // 入学年份
-            { wch: 25 }, // 专业
+            { wch: 15 }, // 教师编号
+            { wch: 12 }, // 教师姓名
+            { wch: 8 },  // 年龄
+            { wch: 25 }, // 户籍所在地
             { wch: 20 }  // 创建时间
           ];
           
           // 导出文件
-          XLSX.writeFile(wb, `学生信息_${formatDate(new Date(), 'yyyyMMdd')}.xlsx`);
+          XLSX.writeFile(wb, `教师信息_${formatDate(new Date(), 'yyyyMMdd')}.xlsx`);
         }).finally(() => {
           this.loading = false;
         });
@@ -335,5 +329,9 @@
   .pagination-container {
     margin-top: 20px;
     text-align: center;
+  }
+  
+  .el-input-number {
+    width: 120px;
   }
   </style>
